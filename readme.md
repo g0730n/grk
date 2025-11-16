@@ -120,6 +120,18 @@ Keywords are global variables numbered 0-99, referenced as `Nk` where N is 0-99.
 4k 10 + 5 * 2       # Expression: 4k = 10 + 10 = 20
 ```
 
+**Operator Shorthand** - When a keyword is immediately followed by an operator, it uses the keyword's current value as the starting point:
+
+```
+0k 5                # Set 0k to 5
+0k+1                # 0k = 0k + 1 → Result: 6
+0k*2                # 0k = 0k * 2 → Result: 12
+0k-2                # 0k = 0k - 2 → Result: 10
+0k/2                # 0k = 0k / 2 → Result: 5
+0k+1k               # 0k = 0k + 1k (works with keywords too)
+0k+2*3              # 0k = 0k + (2*3) → Respects precedence
+```
+
 ### Arithmetic Operations
 
 Supports `+`, `-`, `*`, `/` with standard precedence (multiplication/division before addition/subtraction).
@@ -275,7 +287,7 @@ The `:` separator controls flow and acts like a statement terminator:
 1g #
   o 0k
   > 0k 0
-    0k 0k - 1
+    0k-1
     l
   :
   o 1k
@@ -293,7 +305,7 @@ o 'Searching for 42...'
     o 'Found it at: ' 0k
     x
   :
-  0k 0k + 1
+  0k+1
   < 0k 100 r
 #
 1g
@@ -324,7 +336,7 @@ o 'Fibonacci: ' 0k ' ' 1k ' '
   o 3k ' '
   0k 1k
   1k 3k
-  2k 2k - 1
+  2k-1
   > 2k 0 r
 #
 4g

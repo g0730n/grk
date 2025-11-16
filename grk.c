@@ -170,7 +170,9 @@ typedef struct {
 Token get_next_token();
 Token peek_token();
 Value evaluate_expression();
+Value evaluate_expression_with_left(Value initial_left);
 Value evaluate_term();
+Value evaluate_term_with_left(Value initial_left);
 Value evaluate_factor();
 
 /* Get value from a keyword */
@@ -325,9 +327,9 @@ Value evaluate_factor() {
     return val;
 }
 
-/* Evaluate a term (handles * and /) */
-Value evaluate_term() {
-    Value left = evaluate_factor();
+/* Evaluate a term (handles * and /) - with optional initial left value */
+Value evaluate_term_with_left(Value initial_left) {
+    Value left = initial_left;
 
     while (1) {
         Token token = peek_token();
@@ -343,9 +345,15 @@ Value evaluate_term() {
     return left;
 }
 
-/* Evaluate an expression (handles + and -) */
-Value evaluate_expression() {
-    Value left = evaluate_term();
+/* Evaluate a term (handles * and /) */
+Value evaluate_term() {
+    Value left = evaluate_factor();
+    return evaluate_term_with_left(left);
+}
+
+/* Evaluate an expression (handles + and -) - with optional initial left value */
+Value evaluate_expression_with_left(Value initial_left) {
+    Value left = initial_left;
 
     while (1) {
         Token token = peek_token();
@@ -359,6 +367,12 @@ Value evaluate_expression() {
     }
 
     return left;
+}
+
+/* Evaluate an expression (handles + and -) */
+Value evaluate_expression() {
+    Value left = evaluate_term();
+    return evaluate_expression_with_left(left);
 }
 
 /* ===== KEYWORD OPERATIONS ===== */
@@ -398,8 +412,9 @@ void set_keyword_value(int keyword_num, Value val) {
 }
 
 /* Process keyword assignment statement */
-/* Expected pattern: Nk[value/expression] */
+/* Expected pattern: Nk[value/expression] or Nk[op][expression] */
 /* e.g., "0k100", "1k3.14", "2k'hello'", "3k1k+2", "4k5k" */
+/* NEW: "0k+1" means "0k = 0k + 1", "0k*2" means "0k = 0k * 2" */
 void process_keyword_assignment(int keyword_num) {
     /* The keyword number has already been consumed */
     /* Now we need to evaluate what comes next and assign it */
@@ -407,8 +422,34 @@ void process_keyword_assignment(int keyword_num) {
     Token token = peek_token();
     Value val;
 
+    /* Check if next token is an operator - this means we start with keyword's current value */
+    if (token.type == TOKEN_OPERATOR) {
+        /* Get the keyword's current value as the starting point */
+        Value keyword_val = get_keyword_value(keyword_num);
+
+        /* Consume the operator */
+        token = get_next_token();
+        char op = token.value.op;
+
+        Value result;
+
+        if (op == '+' || op == '-') {
+            /* Low precedence operator: evaluate right term, then continue */
+            Value right = evaluate_term();
+            Value partial = perform_operation(keyword_val, op, right);
+            result = evaluate_expression_with_left(partial);
+        } else {
+            /* High precedence operator (* or /): evaluate right factor, then continue */
+            Value right = evaluate_factor();
+            Value partial = perform_operation(keyword_val, op, right);
+            Value term_result = evaluate_term_with_left(partial);
+            result = evaluate_expression_with_left(term_result);
+        }
+
+        set_keyword_value(keyword_num, result);
+    }
     /* Check what type of value we're assigning */
-    if (token.type == TOKEN_INTEGER || token.type == TOKEN_FLOAT ||
+    else if (token.type == TOKEN_INTEGER || token.type == TOKEN_FLOAT ||
         token.type == TOKEN_STRING || token.type == TOKEN_KEYWORD_REF) {
 
         /* Could be a simple value or an expression */
